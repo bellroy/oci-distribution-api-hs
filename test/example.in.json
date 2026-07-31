@@ -1,0 +1,40 @@
+{
+    "annotations": {
+        "org.opencontainers.image.created": "2026-07-31T06:15:12Z"
+    },
+    "artifactType": "application/vnd.unknown.artifact.v1",
+    "config": {
+        "annotations": null,
+        "digest": "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+        "mediaType": "application/vnd.oci.empty.v1+json",
+        "size": 2
+    },
+    "layers": [
+        {
+            "annotations": {
+                "org.opencontainers.image.title": "stack.yaml"
+            },
+            "digest": "sha256:31dfdeffd2a31d3b15cf01fde5913e737ebd7d5377233ad2e551db5c0a43129e",
+            "mediaType": "text/plain",
+            "size": 81
+        },
+        {
+            "annotations": {
+                "org.opencontainers.image.title": "CHANGELOG.md"
+            },
+            "digest": "sha256:747466c38664ffeb2d98868f496e455c11d890e621cba8f92660a54646f917fe",
+            "mediaType": "text/plain",
+            "size": 113
+        },
+        {
+            "annotations": {
+                "org.opencontainers.image.title": "LICENSE"
+            },
+            "digest": "sha256:1f256ecad192880510e84ad60474eab7589218784b9a50bc7ceee34c2b91f1d5",
+            "mediaType": "text/plain",
+            "size": 16725
+        }
+    ],
+    "mediaType": "application/vnd.oci.image.manifest.v1+json",
+    "schemaVersion": 2
+}
