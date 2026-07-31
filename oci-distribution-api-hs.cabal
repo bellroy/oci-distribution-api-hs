@@ -1,0 +1,55 @@
+cabal-version: 3.4
+name: oci-distribution-api-hs
+version: 0.1.0.0
+license: BSD-3-Clause
+license-file: LICENSE
+author: Mike Ledger
+maintainer: haskell@bellroy.com
+category: Distribution
+build-type: Simple
+extra-doc-files: CHANGELOG.md
+
+common warnings
+  ghc-options: -Wall
+
+library
+  import:
+    warnings
+
+  -- cabal-gild: discover src/
+  exposed-modules:
+    OpenContainerImage.Manifest
+    OpenContainerImage.Registry
+
+  build-depends:
+    aeson,
+    attoparsec,
+    base ^>=4.21.2.0,
+    bytestring,
+    http-client,
+    http-types,
+    network-uri,
+    text,
+    vector,
+
+  hs-source-dirs: src
+  default-language: GHC2024
+
+test-suite oci-distribution-api-hs-test
+  import: warnings
+  default-language:
+    GHC2024
+
+  type: exitcode-stdio-1.0
+  build-depends:
+    aeson,
+    aeson-pretty,
+    base ^>=4.21.2.0,
+    bytestring,
+    oci-distribution-api-hs,
+    tasty,
+    tasty-golden,
+
+  -- cabal-gild: discover test/
+  hs-source-dirs: test
+  main-is: spec.hs

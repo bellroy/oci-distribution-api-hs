@@ -1,0 +1,5 @@
+snapshot: nightly-2026-07-10
+system-ghc: true
+install-ghc: false
+packages:
+  - .
