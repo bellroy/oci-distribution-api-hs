@@ -73,9 +73,6 @@ data Digest = Digest
   }
   deriving stock (Generic, Show)
 
-data DigestAlgorithmParseState = StartAlgorithm | InAlgorithm | AlgInvalidChar
-  deriving stock (Eq)
-
 digestAlgorithm :: Digest -> Text
 digestAlgorithm Digest {algorithm} = algorithm
 
@@ -121,6 +118,8 @@ instance FromJSON Digest where
       inAlgorithmComponentClass = TextParse.inClass "a-z0-9"
       inAlgorithmSeparatorClass = TextParse.inClass "+._-"
       inEncodedClass = TextParse.inClass "a-zA-Z0-9=_-"
+
+data DigestAlgorithmParseState = StartAlgorithm | InAlgorithm | AlgInvalidChar
 
 type ManifestName = Text
 
