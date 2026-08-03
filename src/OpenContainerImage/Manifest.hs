@@ -38,9 +38,9 @@ import Data.Proxy (Proxy (..))
 import Data.Text (Text)
 import Data.Text qualified as Text
 import Data.Vector (Vector)
-import Data.Word
+import Data.Word (Word64)
 import GHC.Generics (Generic, Generically (..))
-import GHC.TypeLits
+import GHC.TypeLits (KnownNat, KnownSymbol, natVal, symbolVal)
 import OpenContainerImage.Manifest.Annotation qualified as Annotation
 import Type.Reflection (typeRep)
 
