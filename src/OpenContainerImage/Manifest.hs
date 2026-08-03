@@ -11,6 +11,10 @@
 -- Manifests
 --
 -- See https://specs.opencontainers.org/image-spec
+--
+-- The 'FromJSON' and 'ToJSON' instances are the canonical implementations in
+-- accordance with the spec. (Well, the subset of the spec we actually implement
+-- :-))
 module OpenContainerImage.Manifest
   ( ImageManifest (..),
     Descriptor (..),
