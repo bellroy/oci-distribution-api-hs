@@ -2,7 +2,6 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE MultilineStrings #-}
 {-# LANGUAGE OrPatterns #-}
-{-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE Strict #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -78,10 +77,10 @@ data DigestAlgorithmParseState = StartAlgorithm | InAlgorithm | AlgInvalidChar
   deriving stock (Eq)
 
 digestAlgorithm :: Digest -> Text
-digestAlgorithm = (.algorithm)
+digestAlgorithm Digest {algorithm} = algorithm
 
-digestEncoded :: Digest -> Text 
-digestEncoded = (.encoded)
+digestEncoded :: Digest -> Text
+digestEncoded Digest {encoded} = encoded
 
 renderDigest :: Digest -> Text
 renderDigest Digest {rendered} = rendered
