@@ -1,8 +1,8 @@
 {-# LANGUAGE DerivingVia #-}
-{-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE MultilineStrings #-}
 {-# LANGUAGE OrPatterns #-}
+{-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE Strict #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -13,15 +13,20 @@
 --
 -- See https://specs.opencontainers.org/image-spec
 module OpenContainerImage.Manifest
-  ( ImageManifest (..)
-  , Descriptor (..)
+  ( ImageManifest (..),
+    Descriptor (..),
+
     -- * Digests
-  , Digest (..)
-  , renderDigest
-  , digestAlgorithm
-  , digestEncoded
+    Digest (..),
+    renderDigest,
+    digestAlgorithm,
+    digestEncoded,
+
+    -- * Extra types
+    ManifestName,
+    ManifestReference,
   )
-  where
+where
 
 import Data.Aeson (FromJSON, ToJSON)
 import Data.Aeson qualified as JSON
