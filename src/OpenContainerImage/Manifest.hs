@@ -1,8 +1,8 @@
 {-# LANGUAGE DerivingVia #-}
+{-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE MultilineStrings #-}
 {-# LANGUAGE OrPatterns #-}
-{-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE Strict #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -12,23 +12,23 @@
 -- Manifests
 --
 -- See https://specs.opencontainers.org/image-spec
-module OpenContainerImage.Manifest (
-  ImageManifest (..),
-  Descriptor (..),
-
-  -- * Digests
-  Digest (..),
-  renderDigest,
-  digestAlgorithm,
-  digestEncoded,
-)
-where
+module OpenContainerImage.Manifest
+  ( ImageManifest (..)
+  , Descriptor (..)
+    -- * Digests
+  , Digest (..)
+  , renderDigest
+  , digestAlgorithm
+  , digestEncoded
+  )
+  where
 
 import Data.Aeson (FromJSON, ToJSON)
 import Data.Aeson qualified as JSON
 import Data.Aeson.Types (FromJSON (parseJSON), ToJSON (toEncoding, toJSON))
 import Data.Attoparsec.Text qualified as TextParse
 import Data.Function ((&))
+import Data.Map.Strict (Map)
 import Data.Proxy (Proxy (..))
 import Data.Text (Text)
 import Data.Text qualified as Text
@@ -36,25 +36,26 @@ import Data.Vector (Vector)
 import Data.Word
 import GHC.Generics (Generic, Generically (..))
 import GHC.TypeLits
+import OpenContainerImage.Manifest.Annotation qualified as Annotation
 import Type.Reflection (typeRep)
 
 data ImageManifest = ImageManifest
-  { schemaVersion :: Literal 2
-  , mediaType :: Literal "application/vnd.oci.image.manifest.v1+json"
-  , artifactType :: Literal "application/vnd.unknown.artifact.v1"
-  , config :: Descriptor
-  , layers :: Vector Descriptor
-  , annotations :: Maybe JSON.Object
+  { schemaVersion :: Literal 2,
+    mediaType :: Literal "application/vnd.oci.image.manifest.v1+json",
+    artifactType :: Literal "application/vnd.unknown.artifact.v1",
+    config :: Descriptor,
+    layers :: Vector Descriptor,
+    annotations :: Maybe (Map Annotation.Key Text)
   }
   deriving stock (Show, Generic)
   deriving (ToJSON, FromJSON) via (Generically ImageManifest)
 
 data Descriptor = Descriptor
-  { mediaType :: Text
-  -- ^ Media type for whatever is referred to by this descriptor
-  , digest :: Digest
-  , size :: Word64
-  , annotations :: Maybe JSON.Object
+  { -- | Media type for whatever is referred to by this descriptor
+    mediaType :: Text,
+    digest :: Digest,
+    size :: Word64,
+    annotations :: Maybe (Map Annotation.Key Text)
   }
   deriving stock (Show, Generic)
   deriving (ToJSON, FromJSON) via (Generically Descriptor)
@@ -62,9 +63,9 @@ data Descriptor = Descriptor
 -- | Digests
 -- See https://specs.opencontainers.org/image-spec/descriptor/?v=v1.1.1#digests
 data Digest = Digest
-  { algorithm :: Text
-  , encoded :: Text
-  , rendered :: Text
+  { algorithm :: Text,
+    encoded :: Text,
+    rendered :: Text
   }
   deriving stock (Generic, Show)
 
@@ -74,7 +75,7 @@ data DigestAlgorithmParseState = StartAlgorithm | InAlgorithm | AlgInvalidChar
 digestAlgorithm :: Digest -> Text
 digestAlgorithm = (.algorithm)
 
-digestEncoded :: Digest -> Text
+digestEncoded :: Digest -> Text 
 digestEncoded = (.encoded)
 
 renderDigest :: Digest -> Text
