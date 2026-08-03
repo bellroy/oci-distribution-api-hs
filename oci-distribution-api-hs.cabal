@@ -30,7 +30,7 @@ library
     containers,
     http-client,
     http-types,
-    network-uri,
+    modern-uri,
     text,
     vector,
 
