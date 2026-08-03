@@ -17,6 +17,7 @@ library
   import: common
   -- cabal-gild: discover src/
   exposed-modules:
+    OpenContainerImage.Flow.GetLayerByAnnotation
     OpenContainerImage.Manifest
     OpenContainerImage.Manifest.Annotation
     OpenContainerImage.Registry
