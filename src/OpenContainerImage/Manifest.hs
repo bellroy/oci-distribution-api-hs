@@ -46,7 +46,7 @@ import Type.Reflection (typeRep)
 data ImageManifest = ImageManifest
   { schemaVersion :: Literal 2,
     mediaType :: Literal "application/vnd.oci.image.manifest.v1+json",
-    artifactType :: Literal "application/vnd.unknown.artifact.v1",
+    artifactType :: Maybe Text,
     config :: Descriptor,
     layers :: Vector Descriptor,
     annotations :: Maybe (Map Annotation.Key Text)
