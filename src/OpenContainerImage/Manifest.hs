@@ -116,6 +116,11 @@ instance FromJSON Digest where
       inAlgorithmSeparatorClass = TextParse.inClass "+._-"
       inEncodedClass = TextParse.inClass "a-zA-Z0-9=_-"
 
+type ManifestName = Text
+
+-- | Either a tag (common ones are "v1", "latest", etc.) or a particular reference
+type ManifestReference = Text
+
 -- | aeson helper type
 --
 -- Gives you a ToJSON/FromJSON with exactly one valid (string or natural) value
