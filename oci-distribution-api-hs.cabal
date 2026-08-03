@@ -9,13 +9,12 @@ category: Distribution
 build-type: Simple
 extra-doc-files: CHANGELOG.md
 
-common warnings
+common common
   ghc-options: -Wall
+  default-language: GHC2024
 
 library
-  import:
-    warnings
-
+  import: common
   -- cabal-gild: discover src/
   exposed-modules:
     OpenContainerImage.Manifest
@@ -33,13 +32,9 @@ library
     vector,
 
   hs-source-dirs: src
-  default-language: GHC2024
 
 test-suite oci-distribution-api-hs-test
-  import: warnings
-  default-language:
-    GHC2024
-
+  import: common
   type: exitcode-stdio-1.0
   build-depends:
     aeson,
