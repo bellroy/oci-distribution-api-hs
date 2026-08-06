@@ -32,6 +32,8 @@ library
     http-types,
     modern-uri,
     text,
+    transformers,
+    unliftio,
     vector,
 
   hs-source-dirs: src
@@ -52,7 +54,7 @@ test-suite oci-distribution-api-hs-test
   hs-source-dirs: test
   main-is: spec.hs
 
-executable oci-distribution-api-hs-read-one-layer
+executable oci-read-one-layer
   import: common
   build-depends:
     base ^>=4.21.2.0,
@@ -65,4 +67,4 @@ executable oci-distribution-api-hs-read-one-layer
     optparse-generic,
     relude,
 
-  main-is: example/read-one-layer.hs
+  main-is: example/oci-read-one-layer.hs
