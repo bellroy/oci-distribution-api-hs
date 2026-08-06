@@ -58,11 +58,8 @@ data Descriptor = Descriptor
   deriving stock (Show, Generic)
   deriving (ToJSON, FromJSON) via (Generically Descriptor)
 
---------------------------------------------------------------------------------
--- Digests
---
+-- | Digests
 -- See https://specs.opencontainers.org/image-spec/descriptor/?v=v1.1.1#digests
-
 data Digest = Digest
   { algorithm :: Text,
     encoded :: Text,
@@ -76,7 +73,7 @@ data DigestAlgorithmParseState = StartAlgorithm | InAlgorithm | AlgInvalidChar
 digestAlgorithm :: Digest -> Text
 digestAlgorithm = (.algorithm)
 
-digestEncoded :: Digest -> Text 
+digestEncoded :: Digest -> Text
 digestEncoded = (.encoded)
 
 renderDigest :: Digest -> Text
@@ -119,11 +116,9 @@ instance FromJSON Digest where
       inAlgorithmSeparatorClass = TextParse.inClass "+._-"
       inEncodedClass = TextParse.inClass "a-zA-Z0-9=_-"
 
---------------------------------------------------------------------------------
--- aeson helper type
+-- | aeson helper type
 --
 -- Gives you a ToJSON/FromJSON with exactly one valid (string or natural) value
-
 data Literal a = Literal
 
 instance (KnownSymbol a) => Show (Literal a) where
