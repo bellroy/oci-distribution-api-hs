@@ -246,7 +246,7 @@ doRegistryRequest RegistryClient {secure, host, port, auth, manager, logResponse
       -- anyway when attempting to use an expired token, which will then trigger
       -- the auth flow.
       NeedAuth {basicAuthUsername, basicAuthPassword, applyAuthRef} -> do
-        let doRegistryRequestNewAuth newApplyAuth = do
+        let doRegistryRequestWithNewAuth newApplyAuth = do
               writeIORef applyAuthRef newApplyAuth
               tryDoRegistryRequestWithAuth newApplyAuth
             tryDoRegistryRequestWithAuth applyAuth = do
@@ -260,7 +260,7 @@ doRegistryRequest RegistryClient {secure, host, port, auth, manager, logResponse
                 HTTP.responseClose response & lift
                 case authMode of
                   RegistryAuthBasic -> do
-                    response <- doRegistryRequestNewAuth (HTTP.applyBasicAuth basicAuthUsername basicAuthPassword)
+                    response <- doRegistryRequestWithNewAuth (HTTP.applyBasicAuth basicAuthUsername basicAuthPassword)
                     case HTTP.statusCode (HTTP.responseStatus response) of
                       401 -> pure (Left (RegistryAuthFail "still unauthorised after basic auth token flow"))
                       _ -> handleResponse response <&> first RegistryError & lift
@@ -268,7 +268,7 @@ doRegistryRequest RegistryClient {secure, host, port, auth, manager, logResponse
                     newToken <- doRegistryAuthParamsRequest manager authParams basicAuthUsername basicAuthPassword & lift
                     case newToken of
                       Just token -> do
-                        response <- doRegistryRequestNewAuth (HTTP.applyBearerAuth token)
+                        response <- doRegistryRequestWithNewAuth (HTTP.applyBearerAuth token)
                         case HTTP.statusCode (HTTP.responseStatus response) of
                           401 -> pure (Left (RegistryAuthFail "still unauthorised after bearer auth token flow"))
                           _ -> handleResponse response <&> first RegistryError & lift
