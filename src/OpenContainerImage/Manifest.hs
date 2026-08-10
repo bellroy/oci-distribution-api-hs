@@ -1,5 +1,4 @@
 {-# LANGUAGE DerivingVia #-}
-{-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE MultilineStrings #-}
 {-# LANGUAGE OrPatterns #-}
@@ -12,38 +11,49 @@
 -- Manifests
 --
 -- See https://specs.opencontainers.org/image-spec
+--
+-- The 'FromJSON' and 'ToJSON' instances are the canonical implementations in
+-- accordance with the spec. (Well, the subset of the spec we actually implement
+-- :-))
 module OpenContainerImage.Manifest
-  ( ImageManifest (..)
-  , Descriptor (..)
+  ( ImageManifest (..),
+    Descriptor (..),
+
     -- * Digests
-  , Digest (..)
-  , renderDigest
-  , digestAlgorithm
-  , digestEncoded
+    Digest (..),
+    renderDigest,
+    digestAlgorithm,
+    digestEncoded,
+
+    -- * Extra types
+    ManifestName,
+    ManifestReference,
   )
-  where
+where
 
 import Data.Aeson (FromJSON, ToJSON)
 import Data.Aeson qualified as JSON
 import Data.Aeson.Types (FromJSON (parseJSON), ToJSON (toEncoding, toJSON))
 import Data.Attoparsec.Text qualified as TextParse
 import Data.Function ((&))
+import Data.Map.Strict (Map)
 import Data.Proxy (Proxy (..))
 import Data.Text (Text)
 import Data.Text qualified as Text
 import Data.Vector (Vector)
-import Data.Word
+import Data.Word (Word64)
 import GHC.Generics (Generic, Generically (..))
-import GHC.TypeLits
+import GHC.TypeLits (KnownNat, KnownSymbol, natVal, symbolVal)
+import OpenContainerImage.Manifest.Annotation qualified as Annotation
 import Type.Reflection (typeRep)
 
 data ImageManifest = ImageManifest
   { schemaVersion :: Literal 2,
     mediaType :: Literal "application/vnd.oci.image.manifest.v1+json",
-    artifactType :: Literal "application/vnd.unknown.artifact.v1",
+    artifactType :: Maybe Text,
     config :: Descriptor,
     layers :: Vector Descriptor,
-    annotations :: Maybe JSON.Object
+    annotations :: Maybe (Map Annotation.Key Text)
   }
   deriving stock (Show, Generic)
   deriving (ToJSON, FromJSON) via (Generically ImageManifest)
@@ -53,16 +63,13 @@ data Descriptor = Descriptor
     mediaType :: Text,
     digest :: Digest,
     size :: Word64,
-    annotations :: Maybe JSON.Object
+    annotations :: Maybe (Map Annotation.Key Text)
   }
   deriving stock (Show, Generic)
   deriving (ToJSON, FromJSON) via (Generically Descriptor)
 
---------------------------------------------------------------------------------
--- Digests
---
+-- | Digests
 -- See https://specs.opencontainers.org/image-spec/descriptor/?v=v1.1.1#digests
-
 data Digest = Digest
   { algorithm :: Text,
     encoded :: Text,
@@ -70,14 +77,11 @@ data Digest = Digest
   }
   deriving stock (Generic, Show)
 
-data DigestAlgorithmParseState = StartAlgorithm | InAlgorithm | AlgInvalidChar
-  deriving stock (Eq)
-
 digestAlgorithm :: Digest -> Text
-digestAlgorithm = (.algorithm)
+digestAlgorithm Digest {algorithm} = algorithm
 
-digestEncoded :: Digest -> Text 
-digestEncoded = (.encoded)
+digestEncoded :: Digest -> Text
+digestEncoded Digest {encoded} = encoded
 
 renderDigest :: Digest -> Text
 renderDigest Digest {rendered} = rendered
@@ -119,11 +123,16 @@ instance FromJSON Digest where
       inAlgorithmSeparatorClass = TextParse.inClass "+._-"
       inEncodedClass = TextParse.inClass "a-zA-Z0-9=_-"
 
---------------------------------------------------------------------------------
--- aeson helper type
+data DigestAlgorithmParseState = StartAlgorithm | InAlgorithm | AlgInvalidChar
+
+type ManifestName = Text
+
+-- | Either a tag (common ones are "v1", "latest", etc.) or a particular reference
+type ManifestReference = Text
+
+-- | aeson helper type
 --
 -- Gives you a ToJSON/FromJSON with exactly one valid (string or natural) value
-
 data Literal a = Literal
 
 instance (KnownSymbol a) => Show (Literal a) where

@@ -9,16 +9,17 @@ category: Distribution
 build-type: Simple
 extra-doc-files: CHANGELOG.md
 
-common warnings
+common common
   ghc-options: -Wall
+  default-language: GHC2024
 
 library
-  import:
-    warnings
-
+  import: common
   -- cabal-gild: discover src/
   exposed-modules:
+    OpenContainerImage.Flow.GetLayerByAnnotation
     OpenContainerImage.Manifest
+    OpenContainerImage.Manifest.Annotation
     OpenContainerImage.Registry
 
   build-depends:
@@ -26,20 +27,19 @@ library
     attoparsec,
     base ^>=4.21.2.0,
     bytestring,
+    containers,
     http-client,
     http-types,
-    network-uri,
+    modern-uri,
     text,
+    transformers,
+    unliftio,
     vector,
 
   hs-source-dirs: src
-  default-language: GHC2024
 
 test-suite oci-distribution-api-hs-test
-  import: warnings
-  default-language:
-    GHC2024
-
+  import: common
   type: exitcode-stdio-1.0
   build-depends:
     aeson,
@@ -53,3 +53,18 @@ test-suite oci-distribution-api-hs-test
   -- cabal-gild: discover test/
   hs-source-dirs: test
   main-is: spec.hs
+
+executable oci-read-one-layer
+  import: common
+  build-depends:
+    base ^>=4.21.2.0,
+    http-client,
+    http-client-tls,
+    network-uri,
+    oci-distribution-api-hs,
+    optics,
+    optparse-applicative,
+    optparse-generic,
+    relude,
+
+  main-is: example/oci-read-one-layer.hs
