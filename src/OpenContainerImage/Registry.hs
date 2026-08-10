@@ -29,9 +29,7 @@ module OpenContainerImage.Registry
 where
 
 import Control.Applicative ((<|>))
-import Control.Monad (guard, void, (>=>))
-import Control.Monad.Trans.Class (lift)
-import Control.Monad.Trans.Cont
+import Control.Monad (guard, unless, void, (>=>))
 import Data.Aeson (FromJSON)
 import Data.Aeson qualified as JSON
 import Data.Bifunctor (first)
@@ -223,61 +221,64 @@ doRegistryRequest ::
   (HTTP.Response HTTP.BodyReader -> IO (Either e a)) ->
   IO (Either (RegistryError e) a)
 doRegistryRequest RegistryClient {secure, host, port, auth, manager, logResponse} modifyBaseRequest handleResponse =
-  evalContT $
-    -- For prior art that is fairly easy to follow on this, see:
-    -- https://github.com/cloverzero/peeko/blob/984b4aa594416c63b35d44f053d1b290130c1805/peeko/src/registry/client.rs#L141
-    case auth of
-      -- Attempt request with no auth flow. Probably can't work for most
-      -- registries but provided anyway
-      NoAuth -> do
-        response <- HTTP.withResponse request manager & ContT
-        lift (logResponse (void response))
+  -- For prior art that is fairly easy to follow on this, see:
+  -- https://github.com/cloverzero/peeko/blob/984b4aa594416c63b35d44f053d1b290130c1805/peeko/src/registry/client.rs#L141
+  case auth of
+    -- Attempt request with no auth flow. Probably can't work for most
+    -- registries but provided anyway
+    NoAuth -> HTTP.withResponse request manager $ \response -> do
+      logResponse (void response)
+      case HTTP.statusCode (HTTP.responseStatus response) of
+        401 -> pure (Left (RegistryAuthFail "unauthorised and no auth method available"))
+        _ -> handleResponse response <&> first RegistryError
+    -- Attempt request with token auth flow as per https://distribution.github.io/distribution/spec/auth/token/
+    -- i.e.
+    -- 1. Make a request
+    -- 2. If that 401s, try get the "Bearer <BEARER>" out of WWW-Authenticate in the response
+    -- 3. If that was successful, use <BEARER> to request an auth token
+    -- 4. If that was successful, use that auth token to make the request in (1) again
+    --
+    -- Token expiry is provided by (3) but we don't use it. We'll get a 401
+    -- anyway when attempting to use an expired token, which will then trigger
+    -- the auth flow.
+    NeedAuth {basicAuthUsername, basicAuthPassword, applyAuthRef} ->
+      doRequestWithAuth Nothing $ \response ->
         case HTTP.statusCode (HTTP.responseStatus response) of
-          401 -> pure (Left (RegistryAuthFail "unauthorised and no auth method available"))
-          _ -> lift (handleResponse response <&> first RegistryError)
-      -- Attempt request with token auth flow as per https://distribution.github.io/distribution/spec/auth/token/
-      -- i.e.
-      -- 1. Make a request
-      -- 2. If that 401s, try get the "Bearer <BEARER>" out of WWW-Authenticate in the response
-      -- 3. If that was successful, use <BEARER> to request an auth token
-      -- 4. If that was successful, use that auth token to make the request in (1) again
-      --
-      -- Token expiry is provided by (3) but we don't use it. We'll get a 401
-      -- anyway when attempting to use an expired token, which will then trigger
-      -- the auth flow.
-      NeedAuth {basicAuthUsername, basicAuthPassword, applyAuthRef} -> do
-        let doRegistryRequestWithNewAuth newApplyAuth = do
-              writeIORef applyAuthRef newApplyAuth
-              tryDoRegistryRequestWithAuth newApplyAuth
-            tryDoRegistryRequestWithAuth applyAuth = do
-              response <- HTTP.withResponse (applyAuth request) manager & ContT
-              lift (logResponse (void response))
-              pure response
-        response <- tryDoRegistryRequestWithAuth =<< readIORef applyAuthRef
-        case HTTP.statusCode (HTTP.responseStatus response) of
-          401
-            | Just (authMode, authParams) <- getRegistryAuthParams response -> do
-                HTTP.responseClose response & lift
-                case authMode of
-                  RegistryAuthBasic -> do
-                    response <- doRegistryRequestWithNewAuth (HTTP.applyBasicAuth basicAuthUsername basicAuthPassword)
-                    case HTTP.statusCode (HTTP.responseStatus response) of
-                      401 -> pure (Left (RegistryAuthFail "still unauthorised after basic auth token flow"))
-                      _ -> handleResponse response <&> first RegistryError & lift
-                  RegistryAuthBearer -> do
-                    newToken <- doRegistryAuthParamsRequest manager authParams basicAuthUsername basicAuthPassword & lift
-                    case newToken of
-                      Just token -> do
-                        response <- doRegistryRequestWithNewAuth (HTTP.applyBearerAuth token)
-                        case HTTP.statusCode (HTTP.responseStatus response) of
-                          401 -> pure (Left (RegistryAuthFail "still unauthorised after bearer auth token flow"))
-                          _ -> handleResponse response <&> first RegistryError & lift
-                      Nothing ->
-                        pure (Left (RegistryAuthFail "registry did not supply auth token after auth token flow"))
-            | otherwise ->
-                pure (Left (RegistryAuthFail "unauthorised and registry did not begin auth token flow"))
+          401 -> do
+            HTTP.responseClose response -- we don't need the responseBody at all so close the response early
+            step'afterInitial401 (void response)
           _ ->
-            handleResponse response <&> first RegistryError & lift
+            handleResponse response <&> first RegistryError
+      where
+        step'afterInitial401 response =
+          case getRegistryAuthParams response of
+            Just (RegistryAuthBasic, _) -> step'authFlowBasic
+            Just (RegistryAuthBearer, authParams) -> step'authFlowBearer authParams
+            Nothing -> pure (Left (RegistryAuthFail "unauthorised and registry did not begin auth flow"))
+
+        step'authFlowBasic =
+          doRequestWithAuth (Just (HTTP.applyBasicAuth basicAuthUsername basicAuthPassword)) $ \response ->
+            case HTTP.statusCode (HTTP.responseStatus response) of
+              401 -> pure (Left (RegistryAuthFail "still unauthorised after basic auth flow"))
+              _ -> handleResponse response <&> first RegistryError
+
+        step'authFlowBearer authParams =
+          doRegistryAuthParamsRequest manager authParams basicAuthUsername basicAuthPassword >>= \case
+            Nothing -> pure (Left (RegistryAuthFail "registry did not supply auth token after auth token flow"))
+            Just token -> doRequestWithAuth (Just (HTTP.applyBearerAuth token)) $ \response ->
+              case HTTP.statusCode (HTTP.responseStatus response) of
+                401 -> pure (Left (RegistryAuthFail "still unauthorised after bearer auth token flow"))
+                _ -> handleResponse response <&> first RegistryError
+
+        -- perform a request with an optional new auth method; if that auth
+        -- method succeeds, write to the applyAuthRef
+        doRequestWithAuth :: Maybe (HTTP.Request -> HTTP.Request) -> (HTTP.Response HTTP.BodyReader -> IO a) -> IO a
+        doRequestWithAuth auth handler = do
+          applyAuth <- maybe (readIORef applyAuthRef) pure auth
+          HTTP.withResponse (applyAuth request) manager $ \response -> do
+            logResponse (void response)
+            unless (HTTP.statusCode (HTTP.responseStatus response) == 401) (writeIORef applyAuthRef applyAuth)
+            handler response
   where
     request =
       HTTP.defaultRequest
