@@ -58,8 +58,7 @@ import OpenContainerImage.Manifest
   )
 import Text.URI (Authority (..), URI (..), UserInfo (..))
 import Text.URI qualified as URI
-import UnliftIO (MonadUnliftIO, finally, mask)
-import UnliftIO.MVar (MVar, newMVar, putMVar, takeMVar, tryPutMVar)
+import UnliftIO.IORef
 
 data RegistryClient = RegistryClient
   { host :: ByteString,
@@ -75,7 +74,7 @@ data RegistryAuth
   | NeedAuth
       { basicAuthUsername :: ByteString,
         basicAuthPassword :: ByteString,
-        applyAuthRef :: MVar (HTTP.Request -> HTTP.Request)
+        applyAuthRef :: IORef (HTTP.Request -> HTTP.Request)
       }
 
 {-# INLINE newClient #-}
@@ -120,7 +119,7 @@ newClient baseUri manager = mapM provideAuthCfg $ do
     provideAuthCfg (basicAuthMaybe, mkClient) = case basicAuthMaybe of
       Nothing -> pure $! mkClient NoAuth
       Just UserInfo {uiUsername, uiPassword} ->
-        newMVar id <&> \applyAuthRef ->
+        newIORef id <&> \applyAuthRef ->
           mkClient
             NeedAuth
               { basicAuthUsername = Text.encodeUtf8 (URI.unRText uiUsername),
@@ -247,15 +246,14 @@ doRegistryRequest RegistryClient {secure, host, port, auth, manager, logResponse
       -- anyway when attempting to use an expired token, which will then trigger
       -- the auth flow.
       NeedAuth {basicAuthUsername, basicAuthPassword, applyAuthRef} -> do
-        applyAuth <- restoringWithMVar applyAuthRef & ContT
         let doRegistryRequestNewAuth newApplyAuth = do
-              putMVar applyAuthRef newApplyAuth
+              writeIORef applyAuthRef newApplyAuth
               tryDoRegistryRequestWithAuth newApplyAuth
             tryDoRegistryRequestWithAuth applyAuth = do
               response <- HTTP.withResponse (applyAuth request) manager & ContT
               lift (logResponse (void response))
               pure response
-        response <- tryDoRegistryRequestWithAuth applyAuth
+        response <- tryDoRegistryRequestWithAuth =<< readIORef applyAuthRef
         case HTTP.statusCode (HTTP.responseStatus response) of
           401
             | Just (authMode, authParams) <- getRegistryAuthParams response -> do
@@ -278,8 +276,7 @@ doRegistryRequest RegistryClient {secure, host, port, auth, manager, logResponse
                         pure (Left (RegistryAuthFail "registry did not supply auth token after auth token flow"))
             | otherwise ->
                 pure (Left (RegistryAuthFail "unauthorised and registry did not begin auth token flow"))
-          _ -> do
-            putMVar applyAuthRef applyAuth
+          _ ->
             handleResponse response <&> first RegistryError & lift
   where
     request =
@@ -295,14 +292,6 @@ doRegistryRequest RegistryClient {secure, host, port, auth, manager, logResponse
             headerName -> HTTP.shouldStripHeaderOnRedirect HTTP.defaultRequest headerName
         }
         & modifyBaseRequest
-
--- | Take an 'MVar', run an action on its content, and restore the 'MVar' to its
--- original contents if the action failed to do so.
-restoringWithMVar :: (MonadUnliftIO m) => MVar a -> (a -> m b) -> m b
-restoringWithMVar m io = do
-  mask $ \unmask -> do
-    a <- takeMVar m
-    unmask (io a) `finally` tryPutMVar m a
 
 data RegistryAuthMode
   = RegistryAuthBearer
