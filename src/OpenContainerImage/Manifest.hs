@@ -1,8 +1,8 @@
 {-# LANGUAGE DerivingVia #-}
-{-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE MultilineStrings #-}
 {-# LANGUAGE OrPatterns #-}
+{-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE Strict #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -12,16 +12,17 @@
 -- Manifests
 --
 -- See https://specs.opencontainers.org/image-spec
-module OpenContainerImage.Manifest
-  ( ImageManifest (..)
-  , Descriptor (..)
-    -- * Digests
-  , Digest (..)
-  , renderDigest
-  , digestAlgorithm
-  , digestEncoded
-  )
-  where
+module OpenContainerImage.Manifest (
+  ImageManifest (..),
+  Descriptor (..),
+
+  -- * Digests
+  Digest (..),
+  renderDigest,
+  digestAlgorithm,
+  digestEncoded,
+)
+where
 
 import Data.Aeson (FromJSON, ToJSON)
 import Data.Aeson qualified as JSON
@@ -38,22 +39,22 @@ import GHC.TypeLits
 import Type.Reflection (typeRep)
 
 data ImageManifest = ImageManifest
-  { schemaVersion :: Literal 2,
-    mediaType :: Literal "application/vnd.oci.image.manifest.v1+json",
-    artifactType :: Literal "application/vnd.unknown.artifact.v1",
-    config :: Descriptor,
-    layers :: Vector Descriptor,
-    annotations :: Maybe JSON.Object
+  { schemaVersion :: Literal 2
+  , mediaType :: Literal "application/vnd.oci.image.manifest.v1+json"
+  , artifactType :: Literal "application/vnd.unknown.artifact.v1"
+  , config :: Descriptor
+  , layers :: Vector Descriptor
+  , annotations :: Maybe JSON.Object
   }
   deriving stock (Show, Generic)
   deriving (ToJSON, FromJSON) via (Generically ImageManifest)
 
 data Descriptor = Descriptor
-  { -- | Media type for whatever is referred to by this descriptor
-    mediaType :: Text,
-    digest :: Digest,
-    size :: Word64,
-    annotations :: Maybe JSON.Object
+  { mediaType :: Text
+  -- ^ Media type for whatever is referred to by this descriptor
+  , digest :: Digest
+  , size :: Word64
+  , annotations :: Maybe JSON.Object
   }
   deriving stock (Show, Generic)
   deriving (ToJSON, FromJSON) via (Generically Descriptor)
@@ -61,9 +62,9 @@ data Descriptor = Descriptor
 -- | Digests
 -- See https://specs.opencontainers.org/image-spec/descriptor/?v=v1.1.1#digests
 data Digest = Digest
-  { algorithm :: Text,
-    encoded :: Text,
-    rendered :: Text
+  { algorithm :: Text
+  , encoded :: Text
+  , rendered :: Text
   }
   deriving stock (Generic, Show)
 
