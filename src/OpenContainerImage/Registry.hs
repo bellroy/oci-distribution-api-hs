@@ -56,7 +56,7 @@ import OpenContainerImage.Manifest
   )
 import Text.URI (Authority (..), URI (..), UserInfo (..))
 import Text.URI qualified as URI
-import UnliftIO.IORef
+import UnliftIO.IORef (IORef, newIORef, readIORef, writeIORef)
 
 data RegistryClient = RegistryClient
   { host :: ByteString,
