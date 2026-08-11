@@ -67,6 +67,30 @@ data RegistryClient = RegistryClient
     manager :: HTTP.Manager
   }
 
+data RegistryClientConfig = RegistryClientConfig
+  { host :: ByteString,
+    secure :: Bool,
+    port :: Int,
+    auth :: RegistryAuth,
+    logResponse :: HTTP.Response () -> IO () {- does not have access to the response body -},
+    manager :: HTTP.Manager
+  }
+
+newClient :: RegistryClientConfig -> IO RegistryClient
+newClient RegistryClientConfig {secure, host, port, basicAuth, manager, logResponse} = do
+  auth <- case basicAuth of
+    Just (user, pass) -> NeedAuth user pass <$> newIORef id
+    Nothing -> pure NoAuth
+  pure
+    RegistryClient
+      { host,
+        secure,
+        port,
+        auth,
+        manager,
+        logResponse
+      }
+
 data RegistryAuth
   = NoAuth
   | NeedAuth
@@ -75,9 +99,9 @@ data RegistryAuth
         applyAuthRef :: IORef (HTTP.Request -> HTTP.Request)
       }
 
-{-# INLINE newClient #-}
-newClient :: Text -> HTTP.Manager -> IO (Maybe RegistryClient)
-newClient baseUri manager = mapM provideAuthCfg $ do
+{-# INLINE newClientFromUri #-}
+newClientFromUri :: Text -> HTTP.Manager -> IO (Maybe RegistryClient)
+newClientFromUri baseUri manager = mapM provideAuthCfg $ do
   URI
     { uriScheme = Just scheme,
       uriAuthority =
@@ -126,9 +150,9 @@ newClient baseUri manager = mapM provideAuthCfg $ do
               }
 
 -- | Useful for debugging
-withResponsePrinting :: RegistryClient -> RegistryClient
-withResponsePrinting client =
-  client
+withResponsePrinting :: RegistryClientConfig -> RegistryClientConfig
+withResponsePrinting config =
+  config
     { logResponse = print
     }
 
