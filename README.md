@@ -1,6 +1,6 @@
 # `oci-distribution-api-hs`
 
-Small library implementing the [OCI Distribution Spec][https://github.com/opencontainers/distribution-spec] API.
+Small library implementing the [OCI Distribution Spec](https://github.com/opencontainers/distribution-spec) API.
 
 ## Endpoints implemented
 
