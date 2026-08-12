@@ -43,7 +43,8 @@ main :: IO ()
 main = do
   Args {baseUrl, manifest = manifestName, ref, layer = layerName} <- O.getRecordWith (O.progDescDoc (Just docstr)) mempty
   manager <- HTTP.newTlsManager
-  client <- OCI.newClient baseUrl manager >>= maybe (fail "nope") pure
+  config <- OCI.configFromUri baseUrl & maybe (fail "bad config uri") pure
+  client <- OCI.newClient config manager
   putTextLn "retrieving manifest..."
   manifest <- OCI.getImageManifest client manifestName ref >>= either (fail . show) pure
   let layers =
