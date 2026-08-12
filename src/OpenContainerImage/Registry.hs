@@ -84,7 +84,6 @@ data RegistryAuth
         applyAuthRef :: IORef (HTTP.Request -> HTTP.Request)
       }
 
-{-# INLINE configFromUri #-}
 configFromUri :: Text -> Maybe RegistryClientConfig
 configFromUri baseUri = do
   URI
