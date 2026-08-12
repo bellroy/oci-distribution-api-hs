@@ -2,18 +2,23 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE Strict #-}
 {-# LANGUAGE NoFieldSelectors #-}
 -- bad
 {-# OPTIONS_GHC -Wno-name-shadowing #-}
 
 module OpenContainerImage.Registry
-  ( -- * Basic registry client
+  ( -- * Constructing a RegistryClient
+
+    -- ** Configuration
+    RegistryClientConfig (..),
+    configFromUri,
+    withBasicAuth,
+
+    -- ** Clients
     RegistryClient,
     newClient,
-
-    -- ** Debugging
-    withResponsePrinting,
 
     -- * Endpoint implementations
 
@@ -58,12 +63,16 @@ import Text.URI (Authority (..), URI (..), UserInfo (..))
 import Text.URI qualified as URI
 import UnliftIO.IORef (IORef, newIORef, readIORef, writeIORef)
 
-data RegistryClient = RegistryClient
+data RegistryClientConfig = RegistryClientConfig
   { host :: ByteString,
     secure :: Bool,
     port :: Int,
+    basicAuth :: Maybe (ByteString, ByteString)
+  }
+
+data RegistryClient = RegistryClient
+  { baseRequest :: HTTP.Request,
     auth :: RegistryAuth,
-    logResponse :: HTTP.Response () -> IO () {- does not have access to the response body -},
     manager :: HTTP.Manager
   }
 
@@ -75,9 +84,9 @@ data RegistryAuth
         applyAuthRef :: IORef (HTTP.Request -> HTTP.Request)
       }
 
-{-# INLINE newClient #-}
-newClient :: Text -> HTTP.Manager -> IO (Maybe RegistryClient)
-newClient baseUri manager = mapM provideAuthCfg $ do
+{-# INLINE configFromUri #-}
+configFromUri :: Text -> Maybe RegistryClientConfig
+configFromUri baseUri = do
   URI
     { uriScheme = Just scheme,
       uriAuthority =
@@ -101,36 +110,49 @@ newClient baseUri manager = mapM provideAuthCfg $ do
       "https" -> Just 443
       _ -> Nothing
   Just
-    ( basicAuth,
-      \auth ->
-        RegistryClient
-          { host = Text.encodeUtf8 (URI.unRText authHost),
-            secure = URI.unRText scheme == "https",
-            port,
-            auth,
-            manager,
-            logResponse = \_ -> pure ()
-          }
-    )
-  where
-    provideAuthCfg :: (Maybe URI.UserInfo, RegistryAuth -> RegistryClient) -> IO RegistryClient
-    provideAuthCfg (basicAuthMaybe, mkClient) = case basicAuthMaybe of
-      Nothing -> pure $! mkClient NoAuth
-      Just UserInfo {uiUsername, uiPassword} ->
-        newIORef id <&> \applyAuthRef ->
-          mkClient
-            NeedAuth
-              { basicAuthUsername = Text.encodeUtf8 (URI.unRText uiUsername),
-                basicAuthPassword = maybe "" (Text.encodeUtf8 . URI.unRText) uiPassword,
-                applyAuthRef
-              }
+    RegistryClientConfig
+      { host = Text.encodeUtf8 (URI.unRText authHost),
+        secure = URI.unRText scheme == "https",
+        port,
+        basicAuth =
+          basicAuth <&> \UserInfo {uiUsername, uiPassword} ->
+            ( Text.encodeUtf8 (URI.unRText uiUsername),
+              maybe "" (Text.encodeUtf8 . URI.unRText) uiPassword
+            )
+      }
 
--- | Useful for debugging
-withResponsePrinting :: RegistryClient -> RegistryClient
-withResponsePrinting client =
-  client
-    { logResponse = print
-    }
+newClient :: RegistryClientConfig -> HTTP.Manager -> IO RegistryClient
+newClient RegistryClientConfig {basicAuth, ..} manager = do
+  auth <- case basicAuth of
+    Just (basicAuthUsername, basicAuthPassword) -> do
+      applyAuthRef <- newIORef id {- populated by doRegistryRequest -}
+      pure
+        NeedAuth
+          { basicAuthUsername,
+            basicAuthPassword,
+            applyAuthRef
+          }
+    Nothing -> pure NoAuth
+  pure
+    RegistryClient
+      { baseRequest =
+          HTTP.defaultRequest
+            { HTTP.secure = secure,
+              HTTP.port = port,
+              HTTP.host = host,
+              -- See https://github.com/opencontainers/distribution-spec/blob/main/spec.md#api
+              -- "... clients ... MUST NOT forward Authorization headers across host
+              -- boundaries unless explicitly configured to do so."
+              HTTP.shouldStripHeaderOnRedirect = \case
+                "Authorization" -> True
+                headerName -> HTTP.shouldStripHeaderOnRedirect HTTP.defaultRequest headerName
+            },
+        ..
+      }
+
+-- | Override the basic auth method
+withBasicAuth :: (ByteString, ByteString) -> RegistryClientConfig -> RegistryClientConfig
+withBasicAuth (user, pass) RegistryClientConfig {..} = RegistryClientConfig {basicAuth = Just (user, pass), ..}
 
 --------------------------------------------------------------------------------
 -- Endpoints
@@ -220,14 +242,13 @@ doRegistryRequest ::
   (HTTP.Request -> HTTP.Request) ->
   (HTTP.Response HTTP.BodyReader -> IO (Either e a)) ->
   IO (Either (RegistryError e) a)
-doRegistryRequest RegistryClient {secure, host, port, auth, manager, logResponse} modifyBaseRequest handleResponse =
+doRegistryRequest RegistryClient {baseRequest, auth, manager} modifyBaseRequest handleResponse =
   -- For prior art that is fairly easy to follow on this, see:
   -- https://github.com/cloverzero/peeko/blob/984b4aa594416c63b35d44f053d1b290130c1805/peeko/src/registry/client.rs#L141
   case auth of
     -- Attempt request with no auth flow. Probably can't work for most
     -- registries but provided anyway
     NoAuth -> HTTP.withResponse request manager $ \response -> do
-      logResponse (void response)
       case HTTP.statusCode (HTTP.responseStatus response) of
         401 -> pure (Left (RegistryAuthFail "unauthorised and no auth method available"))
         _ -> handleResponse response <&> first RegistryError
@@ -276,23 +297,10 @@ doRegistryRequest RegistryClient {secure, host, port, auth, manager, logResponse
         doRequestWithAuth auth handler = do
           applyAuth <- maybe (readIORef applyAuthRef) pure auth
           HTTP.withResponse (applyAuth request) manager $ \response -> do
-            logResponse (void response)
             unless (HTTP.statusCode (HTTP.responseStatus response) == 401) (writeIORef applyAuthRef applyAuth)
             handler response
   where
-    request =
-      HTTP.defaultRequest
-        { HTTP.secure = secure,
-          HTTP.port = port,
-          HTTP.host = host,
-          -- See https://github.com/opencontainers/distribution-spec/blob/main/spec.md#api
-          -- "... clients ... MUST NOT forward Authorization headers across host
-          -- boundaries unless explicitly configured to do so."
-          HTTP.shouldStripHeaderOnRedirect = \case
-            "Authorization" -> True
-            headerName -> HTTP.shouldStripHeaderOnRedirect HTTP.defaultRequest headerName
-        }
-        & modifyBaseRequest
+    request = modifyBaseRequest baseRequest
 
 data RegistryAuthMode
   = RegistryAuthBearer
