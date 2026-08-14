@@ -26,7 +26,7 @@ module OpenContainerImage.Manifest
     digestEncoded,
 
     -- * Extra types
-    ManifestName,
+    RepositoryNamespace,
     ManifestReference,
   )
 where
@@ -125,7 +125,7 @@ instance FromJSON Digest where
 
 data DigestAlgorithmParseState = StartAlgorithm | InAlgorithm | AlgInvalidChar
 
-type ManifestName = Text
+type RepositoryNamespace = Text
 
 -- | Either a tag (common ones are "v1", "latest", etc.) or a particular reference
 type ManifestReference = Text

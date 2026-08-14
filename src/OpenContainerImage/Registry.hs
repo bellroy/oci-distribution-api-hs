@@ -57,8 +57,8 @@ import Network.HTTP.Types.Status qualified as HTTP
 import OpenContainerImage.Manifest
   ( Digest,
     ImageManifest,
-    ManifestName,
     ManifestReference,
+    RepositoryNamespace,
     renderDigest,
   )
 import Text.URI (Authority (..), URI (..), UserInfo (..))
@@ -179,7 +179,7 @@ data GetImageManifestError
 -- | end-3 GET /v2/<name>/manifests/<reference>
 getImageManifest ::
   RegistryClient ->
-  ManifestName ->
+  RepositoryNamespace ->
   ManifestReference ->
   IO (Either (RegistryError GetImageManifestError) ImageManifest)
 getImageManifest client name reference = do
@@ -216,7 +216,7 @@ data WithBlobFromDigestError
 -- HTTP.BodyReader surviving beyond the lifetime of the connection.
 withBlobFromDigest ::
   RegistryClient ->
-  ManifestName ->
+  RepositoryNamespace ->
   Digest ->
   (HTTP.BodyReader -> IO a) ->
   IO (Either (RegistryError WithBlobFromDigestError) a)
