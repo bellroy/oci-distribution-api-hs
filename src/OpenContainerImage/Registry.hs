@@ -19,6 +19,7 @@ module OpenContainerImage.Registry
     -- ** Clients
     RegistryClient,
     newClient,
+    newClientWith,
 
     -- * Endpoint implementations
 
@@ -50,6 +51,7 @@ import Data.Text.Encoding qualified as Text
 import Data.Word (Word64)
 import GHC.Generics (Generic, Generically (..))
 import Network.HTTP.Client qualified as HTTP
+import Network.HTTP.Client.TLS qualified as HTTP (newTlsManager)
 import Network.HTTP.Types (hWWWAuthenticate)
 import Network.HTTP.Types.Status qualified as HTTP
 import OpenContainerImage.Manifest
@@ -63,26 +65,13 @@ import Text.URI (Authority (..), URI (..), UserInfo (..))
 import Text.URI qualified as URI
 import UnliftIO.IORef (IORef, newIORef, readIORef, writeIORef)
 
+-- | Configuration to build a 'RegistryClient' with
 data RegistryClientConfig = RegistryClientConfig
   { host :: ByteString,
     secure :: Bool,
     port :: Int,
     basicAuth :: Maybe (ByteString, ByteString)
   }
-
-data RegistryClient = RegistryClient
-  { baseRequest :: HTTP.Request,
-    auth :: RegistryAuth,
-    manager :: HTTP.Manager
-  }
-
-data RegistryAuth
-  = NoAuth
-  | NeedAuth
-      { basicAuthUsername :: ByteString,
-        basicAuthPassword :: ByteString,
-        applyAuthRef :: IORef (HTTP.Request -> HTTP.Request)
-      }
 
 configFromUri :: Text -> Maybe RegistryClientConfig
 configFromUri baseUri = do
@@ -120,8 +109,32 @@ configFromUri baseUri = do
             )
       }
 
-newClient :: RegistryClientConfig -> HTTP.Manager -> IO RegistryClient
-newClient RegistryClientConfig {basicAuth, ..} manager = do
+-- | Override the basic auth method
+withBasicAuth :: (ByteString, ByteString) -> RegistryClientConfig -> RegistryClientConfig
+withBasicAuth (user, pass) RegistryClientConfig {..} =
+  RegistryClientConfig {basicAuth = Just (user, pass), ..}
+
+data RegistryClient = RegistryClient
+  { baseRequest :: HTTP.Request,
+    auth :: RegistryAuth,
+    manager :: HTTP.Manager
+  }
+
+data RegistryAuth
+  = NoAuth
+  | NeedAuth
+      { basicAuthUsername :: ByteString,
+        basicAuthPassword :: ByteString,
+        applyAuthRef :: IORef (HTTP.Request -> HTTP.Request)
+      }
+
+newClient :: RegistryClientConfig -> IO RegistryClient
+newClient config@RegistryClientConfig {secure} =
+  newClientWith config
+    =<< if secure then HTTP.newTlsManager else HTTP.newManager HTTP.defaultManagerSettings
+
+newClientWith :: RegistryClientConfig -> HTTP.Manager -> IO RegistryClient
+newClientWith RegistryClientConfig {basicAuth, ..} manager = do
   auth <- case basicAuth of
     Just (basicAuthUsername, basicAuthPassword) -> do
       applyAuthRef <- newIORef id {- populated by doRegistryRequest -}
@@ -148,10 +161,6 @@ newClient RegistryClientConfig {basicAuth, ..} manager = do
             },
         ..
       }
-
--- | Override the basic auth method
-withBasicAuth :: (ByteString, ByteString) -> RegistryClientConfig -> RegistryClientConfig
-withBasicAuth (user, pass) RegistryClientConfig {..} = RegistryClientConfig {basicAuth = Just (user, pass), ..}
 
 --------------------------------------------------------------------------------
 -- Endpoints
