@@ -58,6 +58,9 @@ executable oci-read-one-layer
   import: common
   build-depends:
     base ^>=4.21.2.0,
+    http-client,
+    http-client-tls,
+    network-uri,
     oci-distribution-api-hs,
     optics,
     optparse-applicative,
