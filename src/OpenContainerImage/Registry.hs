@@ -21,6 +21,7 @@ module OpenContainerImage.Registry
     newClient,
 
     -- * Endpoint implementations
+    RegistryError (..),
 
     -- ** getImageManifest
     GetImageManifestError,
