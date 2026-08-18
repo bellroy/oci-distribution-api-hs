@@ -4,7 +4,9 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 import Data.Map.Strict qualified as Map
-import Network.HTTP.Client.TLS qualified as HTTP (newTlsManager)
+import Network.HTTP.Client qualified as HTTP
+import Network.HTTP.Client.Internal (Manager (mModifyRequest, mModifyResponse), Request (redactHeaders))
+import Network.HTTP.Client.TLS qualified as HTTP
 import OpenContainerImage.Flow.GetLayerByAnnotation qualified as OCI
 import OpenContainerImage.Manifest qualified as OCI
 import OpenContainerImage.Registry qualified as OCI
@@ -20,7 +22,8 @@ data Args = Args
     manifest,
     ref,
     layer ::
-      Text
+      Text,
+    debug :: Bool
   }
   deriving stock (Generic)
   deriving anyclass (O.ParseRecord)
@@ -39,12 +42,23 @@ docstr =
       oci-read-one-layer -- --baseUrl http://localhost:5000 --manifest test/artifact --ref v1 --layer hello.txt
   """
 
+mkHttpManager :: Bool -> IO HTTP.Manager
+mkHttpManager debug =
+  if debug
+    then
+      HTTP.newTlsManager <&> \m ->
+        m
+          { mModifyRequest = \req -> mModifyRequest m (req {redactHeaders = mempty}),
+            mModifyResponse = \r -> print (void r) *> mModifyResponse m r
+          }
+    else
+      HTTP.newTlsManager
+
 main :: IO ()
 main = do
-  Args {baseUrl, manifest = manifestName, ref, layer = layerName} <- O.getRecordWith (O.progDescDoc (Just docstr)) mempty
-  manager <- HTTP.newTlsManager
+  Args {debug, baseUrl, manifest = manifestName, ref, layer = layerName} <- O.getRecordWith (O.progDescDoc (Just docstr)) mempty
   config <- OCI.configFromUri baseUrl & maybe (fail "bad config uri") pure
-  client <- OCI.newClient config manager
+  client <- OCI.newClientWith config =<< mkHttpManager debug
   putTextLn "retrieving manifest..."
   manifest <- OCI.getImageManifest client manifestName ref >>= either (fail . show) pure
   let layers =
@@ -52,14 +66,8 @@ main = do
           #"org.opencontainers.image.title"
           (const True)
           (case manifest of OCI.ImageManifest {layers} -> layers)
-
-  putTextLn (fold ["available layers:", show (Map.keys layers)])
-
-  digest <-
-    layers
-      ^. at layerName
-      & maybe (fail "digest not found") pure
-
+  putTextLn $ fold ["available layers:", show (Map.keys layers)]
+  digest <- layers ^. at layerName & maybe (fail "digest not found") pure
   putTextLn $ fold ["retrieving blob ", show layerName, "..."]
   OCI.withBlobFromDigest
     client
@@ -71,4 +79,3 @@ main = do
         putLBSLn content
     )
     >>= either (fail . show) pure
-  pass
