@@ -29,6 +29,7 @@ library
     bytestring,
     containers,
     http-client,
+    http-client-tls,
     http-types,
     modern-uri,
     text,
