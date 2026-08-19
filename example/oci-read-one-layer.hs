@@ -60,14 +60,10 @@ main = do
   config <- OCI.configFromUri baseUrl & maybe (fail "bad config uri") pure
   client <- OCI.newClientWith config =<< mkHttpManager debug
   putTextLn "retrieving manifest..."
-  manifest <- OCI.getImageManifest client manifestName ref >>= either (fail . show) pure
-  let layers =
-        OCI.layerDigestsByAnnotationKeyMap
-          #"org.opencontainers.image.title"
-          (const True)
-          (case manifest of OCI.ImageManifest {layers} -> layers)
-  putTextLn $ fold ["available layers:", show (Map.keys layers)]
-  digest <- layers ^. at layerName & maybe (fail "digest not found") pure
+  manifest@OCI.ImageManifest {layers} <- OCI.getImageManifest client manifestName ref >>= either (fail . show) pure
+  let layers = OCI.makeLayersByAnnotationMap #"org.opencontainers.image.title" layers
+  putTextLn (fold ["available layers:", show (Map.keys layers)])
+  digest <- layers ^. at layerName % #digest & maybe (fail "digest not found") pure
   putTextLn $ fold ["retrieving blob ", show layerName, "..."]
   OCI.withBlobFromDigest
     client
