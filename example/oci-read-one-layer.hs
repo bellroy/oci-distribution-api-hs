@@ -4,11 +4,12 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 import Data.Map.Strict qualified as Map
+import Data.Vector (Vector)
 import Network.HTTP.Client qualified as HTTP
 import Network.HTTP.Client.Internal (Manager (mModifyRequest, mModifyResponse), Request (redactHeaders))
 import Network.HTTP.Client.TLS qualified as HTTP
-import OpenContainerImage.Flow.GetLayerByAnnotation qualified as OCI
 import OpenContainerImage.Manifest qualified as OCI
+import OpenContainerImage.Manifest.Annotation qualified as Annotation
 import OpenContainerImage.Registry qualified as OCI
 import Optics
 import Options.Applicative qualified as O
@@ -60,10 +61,10 @@ main = do
   config <- OCI.configFromUri baseUrl & maybe (fail "bad config uri") pure
   client <- OCI.newClientWith config =<< mkHttpManager debug
   putTextLn "retrieving manifest..."
-  manifest@OCI.ImageManifest {layers} <- OCI.getImageManifest client manifestName ref >>= either (fail . show) pure
-  let layers = OCI.makeLayersByAnnotationMap #"org.opencontainers.image.title" layers
+  manifest <- OCI.getImageManifest client manifestName ref >>= either (fail . show) pure
+  let layers = makeLayersByAnnotationMap #"org.opencontainers.image.title" (manifest ^. #layers)
   putTextLn (fold ["available layers:", show (Map.keys layers)])
-  digest <- layers ^. at layerName % #digest & maybe (fail "digest not found") pure
+  digest <- layers ^? at layerName % _Just % #digest & maybe (fail "digest not found") pure
   putTextLn $ fold ["retrieving blob ", show layerName, "..."]
   OCI.withBlobFromDigest
     client
@@ -75,3 +76,11 @@ main = do
         putLBSLn content
     )
     >>= either (fail . show) pure
+
+makeLayersByAnnotationMap :: Annotation.Key -> Vector OCI.Descriptor -> Map Text OCI.Descriptor
+makeLayersByAnnotationMap key layers =
+  fromList
+    [ (layerKeyValue, descriptor)
+    | descriptor@OCI.Descriptor {annotations = Just annotations} <- toList layers,
+      layerKeyValue <- maybeToList (Map.lookup key annotations)
+    ]

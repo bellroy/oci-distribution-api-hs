@@ -17,7 +17,6 @@ library
   import: common
   -- cabal-gild: discover src/
   exposed-modules:
-    OpenContainerImage.Flow.GetLayerByAnnotation
     OpenContainerImage.Manifest
     OpenContainerImage.Manifest.Annotation
     OpenContainerImage.Registry
@@ -66,5 +65,6 @@ executable oci-read-one-layer
     optparse-applicative,
     optparse-generic,
     relude,
+    vector,
 
   main-is: example/oci-read-one-layer.hs
