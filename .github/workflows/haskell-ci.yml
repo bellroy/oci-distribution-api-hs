@@ -55,6 +55,7 @@ jobs:
         with:
           ghc-version: ${{ matrix.ghc }}
           cabal-file-relative-path: oci-distribution-api-hs
+          language-edition: GHC2024
 
   tests-completion:
     name: All tests jobs completed
