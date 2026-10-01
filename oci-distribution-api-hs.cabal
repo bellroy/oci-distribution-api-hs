@@ -8,6 +8,7 @@ maintainer: haskell@bellroy.com
 category: Distribution
 build-type: Simple
 extra-doc-files: CHANGELOG.md
+data-files: test/*.json
 
 common common
   ghc-options: -Wall
