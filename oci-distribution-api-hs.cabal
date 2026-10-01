@@ -1,5 +1,7 @@
 cabal-version: 3.4
 name: oci-distribution-api-hs
+synopsis: Interact with an OCI registry
+description: Provides functionality for interacting with OCI registries via HTTP.
 version: 0.1.0.0
 license: BSD-3-Clause
 license-file: LICENSE
@@ -11,6 +13,10 @@ extra-doc-files: CHANGELOG.md
 data-files: test/*.json
 tested-with:
   ghc ==9.12.1
+
+source-repository head
+  type: git
+  location: https://github.com/bellroy/oci-distribution-api-hs.git
 
 common common
   ghc-options: -Wall
@@ -25,18 +31,18 @@ library
     OpenContainerImage.Registry
 
   build-depends:
-    aeson,
-    attoparsec,
+    aeson ^>=2.2.5,
+    attoparsec ^>=0.14.4,
     base ^>=4.21,
-    bytestring,
-    containers,
-    http-client,
-    http-client-tls,
-    http-types,
-    modern-uri,
-    text,
-    unliftio,
-    vector,
+    bytestring ^>=0.12.2,
+    containers ^>=0.7,
+    http-client ^>=0.7.19,
+    http-client-tls ^>=0.4,
+    http-types ^>=0.12.5,
+    modern-uri ^>=0.3.6,
+    text ^>=2.1.4,
+    unliftio ^>=0.2.25,
+    vector ^>=0.13.2,
 
   hs-source-dirs: src
 
@@ -44,13 +50,13 @@ test-suite oci-distribution-api-hs-test
   import: common
   type: exitcode-stdio-1.0
   build-depends:
-    aeson,
-    aeson-pretty,
+    aeson ^>=2.2.5,
+    aeson-pretty ^>=0.8.11,
     base ^>=4.21,
-    bytestring,
+    bytestring ^>=0.12.2,
     oci-distribution-api-hs,
-    tasty,
-    tasty-golden,
+    tasty ^>=1.5.4,
+    tasty-golden ^>=2.3.6,
 
   -- cabal-gild: discover test/
   hs-source-dirs: test
@@ -60,14 +66,14 @@ executable oci-read-one-layer
   import: common
   build-depends:
     base ^>=4.21,
-    http-client,
-    http-client-tls,
-    network-uri,
+    http-client ^>=0.7.19,
+    http-client-tls ^>=0.4,
+    network-uri ^>=2.6.4,
     oci-distribution-api-hs,
-    optics,
-    optparse-applicative,
-    optparse-generic,
-    relude,
-    vector,
+    optics ^>=0.4.2,
+    optparse-applicative ^>=0.19,
+    optparse-generic ^>=1.5.3,
+    relude ^>=1.2.2,
+    vector ^>=0.13.2,
 
   main-is: example/oci-read-one-layer.hs
