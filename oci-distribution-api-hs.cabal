@@ -40,7 +40,7 @@ library
     http-client-tls ^>=0.4,
     http-types ^>=0.12.5,
     modern-uri ^>=0.3.6,
-    text ^>=2.1.4,
+    text ^>=2.1.2,
     unliftio ^>=0.2.25,
     vector ^>=0.13.2,
 
