@@ -33,7 +33,7 @@ library
   build-depends:
     aeson ^>=2.2.5,
     attoparsec ^>=0.14.4,
-    base ^>=4.21,
+    base >=4.21 && <4.23,
     bytestring ^>=0.12.2,
     containers ^>=0.7,
     http-client ^>=0.7.19,
@@ -52,7 +52,7 @@ test-suite oci-distribution-api-hs-test
   build-depends:
     aeson ^>=2.2.5,
     aeson-pretty ^>=0.8.11,
-    base ^>=4.21,
+    base >=4.21 && <4.23,
     bytestring ^>=0.12.2,
     oci-distribution-api-hs,
     tasty ^>=1.5.4,
@@ -65,7 +65,7 @@ test-suite oci-distribution-api-hs-test
 executable oci-read-one-layer
   import: common
   build-depends:
-    base ^>=4.21,
+    base >=4.21 && <4.23,
     http-client ^>=0.7.19,
     http-client-tls ^>=0.4,
     network-uri ^>=2.6.4,
