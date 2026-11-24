@@ -12,7 +12,7 @@ build-type: Simple
 extra-doc-files: CHANGELOG.md
 data-files: test/*.json
 tested-with:
-  ghc ==9.12.1
+  ghc ==9.12.1 || ==9.14.1
 
 source-repository head
   type: git
